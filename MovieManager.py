@@ -20,6 +20,17 @@ class MovieManager:
         tmdb_url = self.get_config('TMDB_URL')
         url = tmdb_url.format(tmdbId, api_key)
         response = requests.get(url, params=payload, headers=headers)
+        print(tmdbId, response.status_code)
+        if response.status_code != 200:
+            return {
+                'title': "",
+                'img': "",
+                'rating': "",
+                'genre': "",
+                'desc': "",
+                'trailer': "",
+                'id' : tmdbId
+                }
         json_data = json.loads(response.text)
         #get genres
         genres = '. '.join([item['name'] for item in json_data['genres']])
