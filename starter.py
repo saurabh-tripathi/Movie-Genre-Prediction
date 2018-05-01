@@ -18,11 +18,12 @@ from keras.optimizers import Adam#, SGD, RMSprop, Adagrad
 np.seterr(divide='ignore', invalid='ignore')
 #%%
 class ProjectConfig:
-    basepath      = "assignment2-data"
+    basepath      = "/scratch/team4/posters_all"
     imsize        = (32,) * 2 # n x n square images, VGG default is 224x224
     tsize         = imsize + (3,)
-    trainfolder   = os.path.join(basepath, 'train-%s' % str(tsize))
-    testfolder    = os.path.join(basepath, 'test-%s' % str(tsize)) # Set test = train to overfit train data
+    meta_path     = "/scratch/team4/movieMeta_all.csv"
+#    trainfolder   = os.path.join(basepath, 'train-%s' % str(tsize))
+#    testfolder    = os.path.join(basepath, 'test-%s' % str(tsize)) # Set test = train to overfit train data
 
 # Model settings    
 cfg = ProjectConfig()
@@ -86,13 +87,13 @@ def makedata(basepath):
     from keras.datasets import cifar10
     (X_train, y_train), (X_test, y_test) = cifar10.load_data()
     if cfg.randomlbls: y_train = np.random.randint(0, len(np.unique(y_train)), y_train.shape)
-    obj_classes = ['airplane', 'automobile', 'bird', 'cat', 'deer', 'dog', 'frog', 'horse', 'ship', 'truck'] 
+#    obj_classes = ['airplane', 'automobile', 'bird', 'cat', 'deer', 'dog', 'frog', 'horse', 'ship', 'truck'] 
     for (X_data, y_data, bp) in [(X_train, y_train, cfg.trainfolder), (X_test, y_test, cfg.testfolder)]:
         for c in obj_classes: os.makedirs(os.path.join(bp, c), exist_ok=True)
         for i, (im, lbl) in tqdm.tqdm(enumerate(zip(X_data, y_data)), desc='Making data folder', total=len(y_data), mininterval=2):
             pn = os.path.join(bp, obj_classes[int(lbl)], "%d.png" % i)
             if not os.path.exists(pn): scipy.misc.imsave(pn, scipy.misc.imresize(im, cfg.imsize, interp='bicubic'))
-makedata(cfg.basepath) # Comment out this line to use your own data
+# makedata(cfg.basepath) # Comment out this line to use your own data
 #%% Dataset loader
 class DataSet:
     def __init__(self):
@@ -100,24 +101,28 @@ class DataSet:
         self.configfile = os.path.join(cfg.basepath, 'dataset.csv')
         self.data = pd.DataFrame(columns=self.columns)       
         self.imgcache = {}
+        self.metadata = pd.read_csv(cfg.meta_path)
         if os.path.exists(self.configfile): self.data = pd.read_csv(self.configfile)
         self.scan()
         
     def scan(self):
-        to_insert = []
-        for t, d in [('Train', cfg.trainfolder), ('Test', cfg.testfolder)]:
-            for root, dir, files in tqdm.tqdm(os.walk(d), mininterval=2, desc='Scanning data folder...'):
-                for f in files:
-                    cls = os.path.split(root)[-1]
-                    path = os.path.join(root, f)
-                    if path in self.data['Path']: continue # Ignore files that we've already seen
-                    if f[0] == '.': continue               # Ignore hidden files  
-                    if '.png' not in f.lower(): continue   # Ignore non-PNG files
-                    row = (t, path, cls, f, 0, 0, 0, np.nan, np.nan)
-                    to_insert.append(row)
-        newdata   = pd.DataFrame(data=to_insert, columns=self.columns)
-        self.data = pd.concat([self.data, newdata])
-        self.data = self.data.drop_duplicates(['Path'])
+        newdata = self.metadata[['dest','id','genre']].head(100)
+        newdata = pd.concat([pd.Series(row['dest'], str(row['genre']).split('. ')) for _, row in newdata.iterrows()]).reset_index()
+        newdata = newdata.assign(xCorrect = 0, xWrong = 0, Mean = np.nan, Var = np.nan, Type = 'Train')
+#        to_insert = []
+#        for t, d in [('Train', cfg.trainfolder), ('Test', cfg.testfolder)]:
+#            for root, dir, files in tqdm.tqdm(os.walk(d), mininterval=2, desc='Scanning data folder...'):
+#                for f in files:
+#                    cls = os.path.split(root)[-1]
+#                    path = os.path.join(root, f)
+#                    if path in self.data['Path']: continue # Ignore files that we've already seen
+#                    if f[0] == '.': continue               # Ignore hidden files  
+#                    if '.jpg' not in f.lower(): continue   # Ignore non-PNG files
+#                    row = (t, path, cls, f, 0, 0, 0, np.nan, np.nan)
+#                    to_insert.append(row)
+#        newdata   = pd.DataFrame(data=to_insert, columns=self.columns)
+        self.data = newdata
+#        self.data = self.data.drop_duplicates(['Path'])
         self.data.to_csv(self.configfile, index=False)
         return self.data
 
@@ -179,7 +184,7 @@ dataset = DataSet()
 
 # Load test data
 from keras.utils import np_utils
-X_test, y_test, obj_classes = dataset.load_data(cfg.testfolder, 'Test')
+X_test, y_test, obj_classes = dataset.load_data(cfg.basepath, 'Test')
 class_to_idx = dict([(y, x) for (x,y) in enumerate(obj_classes)])
 img_rows, img_cols, img_channels = X_test.shape[1:]
 Y_test  = np_utils.to_categorical(y_test, len(obj_classes))
