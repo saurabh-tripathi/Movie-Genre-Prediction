@@ -18,7 +18,8 @@ from keras.optimizers import Adam#, SGD, RMSprop, Adagrad
 np.seterr(divide='ignore', invalid='ignore')
 #%%
 class ProjectConfig:
-    basepath      = "/scratch/team4/posters_all"
+    basepath      = "/scratch/team4/"
+    imagepath     = "/scratch/team4/posters_all"
     imsize        = (32,) * 2 # n x n square images, VGG default is 224x224
     tsize         = imsize + (3,)
     meta_path     = "/scratch/team4/movieMeta_all.csv"
@@ -39,7 +40,7 @@ cfg.randomlbls    = False    # Random labels (remember to rename/delete existing
  
 # Optimizer settings
 optimizer = Adam()   
-cfg.batch_size, cfg.nb_epoch = 32, 10000 # Change for early stopping regularization
+cfg.batch_size, cfg.nb_epoch = 32, 100 # Change for early stopping regularization
 cfg.batchnorm     = False    # Batch normalization (incompatible with filter viz)
 cfg.saveloadmodel = True     # Save/load models to reduce training time
 cfg.frac          = 0.25     # Fraction of data to load
@@ -106,9 +107,14 @@ class DataSet:
         self.scan()
         
     def scan(self):
-        newdata = self.metadata[['dest','id','genre']].head(100)
-        newdata = pd.concat([pd.Series(row['dest'], str(row['genre']).split('. ')) for _, row in newdata.iterrows()]).reset_index()
-        newdata = newdata.assign(xCorrect = 0, xWrong = 0, Mean = np.nan, Var = np.nan, Type = 'Train')
+        newdata = self.metadata[['dest','genre']].head(100)
+        newdata = newdata[newdata['genre'].isnull() == False]
+        newdata['genre'] = newdata['genre'].apply(lambda x: x.split('. ')[0])
+        newdata['random_num'] = np.random.rand(newdata.shape[0])
+        newdata.loc[newdata['random_num'] < 0.8, 'Type'] = 'Train'
+        newdata.loc[newdata['random_num'] >= 0.8, 'Type'] = 'Test'
+        newdata = newdata.assign(xCorrect = 0, xWrong = 0, Mean = np.nan, Var = np.nan)
+        newdata = newdata.rename(columns={'genre': 'Class', 'dest': 'Path'})
 #        to_insert = []
 #        for t, d in [('Train', cfg.trainfolder), ('Test', cfg.testfolder)]:
 #            for root, dir, files in tqdm.tqdm(os.walk(d), mininterval=2, desc='Scanning data folder...'):
@@ -184,7 +190,7 @@ dataset = DataSet()
 
 # Load test data
 from keras.utils import np_utils
-X_test, y_test, obj_classes = dataset.load_data(cfg.basepath, 'Test')
+X_test, y_test, obj_classes = dataset.load_data(cfg.imagepath, 'Test')
 class_to_idx = dict([(y, x) for (x,y) in enumerate(obj_classes)])
 img_rows, img_cols, img_channels = X_test.shape[1:]
 Y_test  = np_utils.to_categorical(y_test, len(obj_classes))
@@ -459,7 +465,7 @@ if os.path.exists(cfg.trainstats): trainstats = pd.read_csv(cfg.trainstats, dtyp
 tm = time.time()
 for e in range(cfg.nb_epoch):
     print('Training... epoch=%d/%d' % (e, cfg.nb_epoch))    
-    X_train, y_train, obj_classes = dataset.load_data(cfg.trainfolder, 'Train', cfg.frac, timeout=15)
+    X_train, y_train, obj_classes = dataset.load_data(cfg.imagepath, 'Train', cfg.frac, timeout=15)
     Y_train = np_utils.to_categorical(y_train, len(obj_classes))    
     loss = model.fit_generator(datagen.flow(X_train, Y_train, shuffle=True, 
                     batch_size=cfg.batch_size), validation_data=(X_test, Y_test), steps_per_epoch=1, verbose=0)
