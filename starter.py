@@ -107,7 +107,7 @@ class DataSet:
         self.scan()
         
     def scan(self):
-        newdata = self.metadata[['dest','genre']].head(100)
+        newdata = self.metadata[['dest','genre']]
         newdata = newdata[newdata['genre'].isnull() == False]
         newdata['genre'] = newdata['genre'].apply(lambda x: x.split('. ')[0])
         newdata['random_num'] = np.random.rand(newdata.shape[0])
@@ -438,6 +438,7 @@ def confusion_matrix(model, dataset, X, T, accpct):
     seaborn.set_style("whitegrid", {'axes.grid' : False})
     seaborn.heatmap(data, annot=data*100, fmt='0.0f', cmap='Wistia', xticklabels=obj_classes, yticklabels=obj_classes)
     plt.xlabel('Actual'), plt.ylabel('Predicted'), plt.title('Confusion matrix (ACC %0.2f%%)' % (accpct*100))
+    plt.savefig(os.path.join(cfg.basepath, 'train-%05d.png' % i))    
     plt.show(), plt.close()
 
 def tsne_viz(model, X, Y, accpct):
@@ -472,7 +473,8 @@ for e in range(cfg.nb_epoch):
     tloss = model.evaluate(X_train, Y_train)
     if cfg.saveloadmodel and e % 50 == 0: model.save_weights(cfg.modelid, overwrite=True)
     trainstats.loc[len(trainstats)] = (loss.history['loss'][0], loss.history['val_loss'][0], loss.history['val_acc'][0], tloss[1])
-    if time.time() - tm > 60: 
+    #if time.time() - tm > 60:
+    if True:
         trainstats.to_csv(cfg.trainstats, index=False)
         confusion_matrix(model, dataset, X_train, Y_train, tloss[1])
         tsne_viz(model, X_train, y_train, tloss[1])        
@@ -483,4 +485,3 @@ for e in range(cfg.nb_epoch):
     if time.time() - tm > 600 and cfg.vizfilt_timeout > 0: vizfilt.viz_filters()
     check_memusage()
     gc.collect()
-s
