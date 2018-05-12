@@ -16,11 +16,13 @@ import os, time, numpy as np, scipy, random, tqdm, pandas as pd, socket
 import matplotlib.pyplot as plt
 from keras.optimizers import Adam#, SGD, RMSprop, Adagrad
 np.seterr(divide='ignore', invalid='ignore')
+
+os.environ["CUDA_VISIBLE_DEVICES"]="3"
 #%%
 class ProjectConfig:
-    basepath      = "/scratch/team4/"
+    basepath      = "/scratch/team4/take2"
     imagepath     = "/scratch/team4/posters_all"
-    imsize        = (32,) * 2 # n x n square images, VGG default is 224x224
+    imsize        = (100,) * 2 # n x n square images, VGG default is 224x224
     tsize         = imsize + (3,)
     meta_path     = "/scratch/team4/movieMeta_all.csv"
 #    trainfolder   = os.path.join(basepath, 'train-%s' % str(tsize))
@@ -110,6 +112,7 @@ class DataSet:
         newdata = self.metadata[['dest','genre']]
         newdata = newdata[newdata['genre'].isnull() == False]
         newdata['genre'] = newdata['genre'].apply(lambda x: x.split('. ')[0])
+        np.random.seed(1)
         newdata['random_num'] = np.random.rand(newdata.shape[0])
         newdata.loc[newdata['random_num'] < 0.8, 'Type'] = 'Train'
         newdata.loc[newdata['random_num'] >= 0.8, 'Type'] = 'Test'
