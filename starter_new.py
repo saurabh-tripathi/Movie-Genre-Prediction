@@ -20,11 +20,11 @@ np.seterr(divide='ignore', invalid='ignore')
 os.environ["CUDA_VISIBLE_DEVICES"]="3"
 #%%
 class ProjectConfig:
-    basepath      = "/scratch/team4/luca_posters"
+    basepath      = "/scratch/team4/joe_posters"
     imagepath     = "/scratch/team4/posters_all"
     imsize        = (64,) * 2 # n x n square images, VGG default is 224x224
     tsize         = imsize + (3,)
-    meta_path     = "/scratch/team4/movieMeta_all.csv"
+    meta_path     = "/scratch/team4/movieMeta_all_new.csv"
 #    trainfolder   = os.path.join(basepath, 'train-%s' % str(tsize))
 #    testfolder    = os.path.join(basepath, 'test-%s' % str(tsize)) # Set test = train to overfit train data
 
@@ -110,8 +110,7 @@ class DataSet:
         
     def scan(self):
         newdata = self.metadata[['dest','genre']]
-        newdata = newdata[newdata['genre'].isnull() == False]
-        newdata['genre'] = newdata['genre'].apply(lambda x: x.split('. ')[0])
+        newdata = newdata[newdata['genre'] != 'Other']
         np.random.seed(1)
         newdata['random_num'] = np.random.rand(newdata.shape[0])
         newdata.loc[newdata['random_num'] < 0.8, 'Type'] = 'Train'
