@@ -9,3 +9,4 @@ Predicting genre of a movie based on its poster.
 - See if you can create a models org and push this repo there.
 - MIT license
 - Push to artifactory
+- Fix fork gitflow and add the entire test suite stuff
